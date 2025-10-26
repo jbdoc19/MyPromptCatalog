@@ -321,7 +321,8 @@
     }
 
     .modal input,
-    .modal textarea {
+    .modal textarea,
+    .modal select {
       width: 100%;
       padding: 10px;
       border-radius: var(--border-radius);
@@ -333,6 +334,43 @@
     .modal textarea {
       min-height: 140px;
       resize: vertical;
+    }
+
+    .selected-categories {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 4px;
+    }
+
+    .selected-categories__placeholder {
+      font-size: 0.85rem;
+      color: rgba(0,0,0,0.6);
+    }
+
+    [data-theme="dark"] .selected-categories__placeholder {
+      color: rgba(255,255,255,0.65);
+    }
+
+    .selected-categories .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(79, 70, 229, 0.12);
+      color: var(--primary);
+      padding: 4px 8px;
+      border-radius: var(--border-radius);
+      font-size: 0.85rem;
+    }
+
+    .selected-categories .chip button {
+      background: none;
+      border: none;
+      color: inherit;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      padding: 0;
     }
 
     .modal-actions {
@@ -543,8 +581,9 @@
       <textarea id="promptBody" required></textarea>
       <label for="promptTags">Tags (comma separated)</label>
       <input id="promptTags" type="text">
-      <label for="promptCategories">Categories (comma separated)</label>
-      <input id="promptCategories" type="text" placeholder="e.g. Work, Personal">
+      <label for="promptCategories">Categories</label>
+      <select id="promptCategories"></select>
+      <div id="promptSelectedCategories" class="selected-categories" aria-live="polite"></div>
       <div class="modal-actions">
         <button type="button" class="delete" id="deletePromptBtn" hidden>Delete</button>
         <button type="button" class="cancel" id="cancelPromptBtn">Cancel</button>
@@ -586,7 +625,8 @@
     const promptTitleInput = document.getElementById('promptTitle');
     const promptBodyInput = document.getElementById('promptBody');
     const promptTagsInput = document.getElementById('promptTags');
-    const promptCategoriesInput = document.getElementById('promptCategories');
+    const promptCategoriesSelect = document.getElementById('promptCategories');
+    const promptSelectedCategories = document.getElementById('promptSelectedCategories');
     const savePromptBtn = document.getElementById('savePromptBtn');
     const cancelPromptBtn = document.getElementById('cancelPromptBtn');
     const deletePromptBtn = document.getElementById('deletePromptBtn');
@@ -598,6 +638,8 @@
     let editingPromptId = null;
     let pomodoroInterval = null;
     let pomodoroRemaining = 25 * 60;
+    const ADD_NEW_CATEGORY_VALUE = '__add_new__';
+    let promptModalCategories = new Set();
 
     applyTheme(loadThemePreference());
     renderAll();
@@ -630,6 +672,100 @@
       renderCategories();
       renderViews();
       renderPrompts();
+      if (modalBackdrop.classList.contains('active')) {
+        populatePromptCategoryOptions();
+        renderPromptModalCategories();
+      }
+    }
+
+    function populatePromptCategoryOptions() {
+      if (!promptCategoriesSelect) return;
+      const optionValues = [...new Set([...data.categories, ...promptModalCategories])];
+      promptCategoriesSelect.innerHTML = '';
+
+      const addOption = document.createElement('option');
+      addOption.value = ADD_NEW_CATEGORY_VALUE;
+      addOption.textContent = 'add new';
+      promptCategoriesSelect.appendChild(addOption);
+
+      optionValues.forEach(category => {
+        const option = document.createElement('option');
+        option.value = category;
+        option.textContent = category;
+        if (promptModalCategories.has(category)) {
+          option.disabled = true;
+        }
+        promptCategoriesSelect.appendChild(option);
+      });
+
+      promptCategoriesSelect.value = ADD_NEW_CATEGORY_VALUE;
+    }
+
+    function renderPromptModalCategories() {
+      if (!promptSelectedCategories) return;
+      promptSelectedCategories.innerHTML = '';
+
+      if (promptModalCategories.size === 0) {
+        const placeholder = document.createElement('span');
+        placeholder.className = 'selected-categories__placeholder';
+        placeholder.textContent = 'No categories selected';
+        promptSelectedCategories.appendChild(placeholder);
+        return;
+      }
+
+      promptModalCategories.forEach(category => {
+        const chip = document.createElement('span');
+        chip.className = 'chip';
+
+        const label = document.createElement('span');
+        label.textContent = category;
+        chip.appendChild(label);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.setAttribute('aria-label', `Remove category ${category}`);
+        removeBtn.textContent = '×';
+        removeBtn.addEventListener('click', () => {
+          promptModalCategories.delete(category);
+          renderPromptModalCategories();
+          populatePromptCategoryOptions();
+        });
+
+        chip.appendChild(removeBtn);
+        promptSelectedCategories.appendChild(chip);
+      });
+    }
+
+    function handlePromptCategorySelectChange(event) {
+      const value = event.target.value;
+      if (!value) {
+        populatePromptCategoryOptions();
+        return;
+      }
+
+      if (value === ADD_NEW_CATEGORY_VALUE) {
+        const name = prompt('New category name?');
+        if (!name) {
+          populatePromptCategoryOptions();
+          return;
+        }
+        const trimmed = name.trim();
+        if (!trimmed) {
+          populatePromptCategoryOptions();
+          return;
+        }
+        if (!data.categories.includes(trimmed)) {
+          data.categories.push(trimmed);
+          persistData(data);
+          renderCategories();
+        }
+        promptModalCategories.add(trimmed);
+      } else {
+        promptModalCategories.add(value);
+      }
+
+      renderPromptModalCategories();
+      populatePromptCategoryOptions();
     }
 
     function renderCategories() {
@@ -747,10 +883,15 @@
     function addCategory() {
       const name = prompt('New category name?');
       if (!name) return;
-      if (data.categories.includes(name)) return;
-      data.categories.push(name);
+      const trimmed = name.trim();
+      if (!trimmed) return;
+      if (data.categories.includes(trimmed)) return;
+      data.categories.push(trimmed);
       persistData(data);
       renderCategories();
+      if (modalBackdrop.classList.contains('active')) {
+        populatePromptCategoryOptions();
+      }
     }
 
     function generateId(prefix) {
@@ -782,16 +923,18 @@
         promptTitleInput.value = promptItem?.title || '';
         promptBodyInput.value = promptItem?.body || '';
         promptTagsInput.value = (promptItem?.tags || []).join(', ');
-        promptCategoriesInput.value = (promptItem?.categories || []).join(', ');
+        promptModalCategories = new Set((promptItem?.categories || []).filter(Boolean));
         deletePromptBtn.hidden = false;
       } else {
         modalTitle.textContent = 'New Prompt';
         promptTitleInput.value = '';
         promptBodyInput.value = '';
         promptTagsInput.value = '';
-        promptCategoriesInput.value = [...selectedCategories].join(', ');
+        promptModalCategories = new Set([...selectedCategories].filter(Boolean));
         deletePromptBtn.hidden = true;
       }
+      renderPromptModalCategories();
+      populatePromptCategoryOptions();
       modalBackdrop.classList.add('active');
       modalBackdrop.setAttribute('aria-hidden', 'false');
       promptTitleInput.focus();
@@ -802,13 +945,16 @@
       modalBackdrop.setAttribute('aria-hidden', 'true');
       editingPromptId = null;
       deletePromptBtn.hidden = true;
+      promptModalCategories = new Set();
+      renderPromptModalCategories();
+      populatePromptCategoryOptions();
     }
 
     function savePrompt() {
       const title = promptTitleInput.value.trim();
       const body = promptBodyInput.value.trim();
       const tags = promptTagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
-      const categories = promptCategoriesInput.value.split(',').map(cat => cat.trim()).filter(Boolean);
+      const categories = Array.from(promptModalCategories);
 
       if (!title || !body) {
         alert('Title and body are required.');
@@ -967,10 +1113,10 @@
     }
 
     function handleGlobalKeys(event) {
-      if (event.key === '/' && !event.target.matches('input, textarea')) {
+      if (event.key === '/' && !event.target.matches('input, textarea, select')) {
         event.preventDefault();
         searchInput.focus();
-      } else if (event.key === 'n' && !event.target.matches('input, textarea')) {
+      } else if (event.key === 'n' && !event.target.matches('input, textarea, select')) {
         event.preventDefault();
         openModal();
       } else if (event.key === 's' && modalBackdrop.classList.contains('active')) {
@@ -989,6 +1135,7 @@
     cancelPromptBtn.addEventListener('click', () => {
       closeModal();
     });
+    promptCategoriesSelect.addEventListener('change', handlePromptCategorySelectChange);
     modalBackdrop.addEventListener('click', (event) => {
       if (event.target === modalBackdrop) {
         closeModal();
@@ -1050,7 +1197,7 @@
     // Accessibility: trap focus within modal when open
     modalBackdrop.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
-      const focusable = modalBackdrop.querySelectorAll('input, textarea, button');
+      const focusable = modalBackdrop.querySelectorAll('input, textarea, select, button');
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
