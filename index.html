@@ -337,7 +337,6 @@
 
     .modal-actions {
       display: flex;
-      align-items: center;
       justify-content: flex-end;
       gap: 12px;
     }
@@ -345,20 +344,10 @@
     .modal-actions button {
       padding: 10px 16px;
       border-radius: var(--border-radius);
-      border: 1px solid transparent;
+      border: none;
       cursor: pointer;
     }
 
-    .modal-actions .delete {
-      margin-right: auto;
-      background: transparent;
-      color: #dc2626;
-      border-color: rgba(220, 38, 38, 0.4);
-    }
-
-    .modal-actions .delete:hover {
-      background: rgba(220, 38, 38, 0.1);
-    }
     .modal-actions .cancel {
       background: rgba(0,0,0,0.1);
       color: inherit;
@@ -546,7 +535,6 @@
       <label for="promptCategories">Categories (comma separated)</label>
       <input id="promptCategories" type="text" placeholder="e.g. Work, Personal">
       <div class="modal-actions">
-        <button type="button" class="delete" id="deletePromptBtn" hidden>Delete</button>
         <button type="button" class="cancel" id="cancelPromptBtn">Cancel</button>
         <button type="button" class="save" id="savePromptBtn">Save</button>
       </div>
@@ -589,7 +577,6 @@
     const promptCategoriesInput = document.getElementById('promptCategories');
     const savePromptBtn = document.getElementById('savePromptBtn');
     const cancelPromptBtn = document.getElementById('cancelPromptBtn');
-    const deletePromptBtn = document.getElementById('deletePromptBtn');
 
     let data = loadData();
     let selectedCategories = new Set();
@@ -720,10 +707,10 @@
     }
 
     function toggleCategory(category) {
-      if (selectedCategories.size === 1 && selectedCategories.has(category)) {
-        selectedCategories.clear();
+      if (selectedCategories.has(category)) {
+        selectedCategories.delete(category);
       } else {
-        selectedCategories = new Set([category]);
+        selectedCategories.add(category);
       }
       activeViewId = null;
       renderCategories();
@@ -778,14 +765,12 @@
         promptBodyInput.value = promptItem?.body || '';
         promptTagsInput.value = (promptItem?.tags || []).join(', ');
         promptCategoriesInput.value = (promptItem?.categories || []).join(', ');
-        deletePromptBtn.hidden = false;
       } else {
         modalTitle.textContent = 'New Prompt';
         promptTitleInput.value = '';
         promptBodyInput.value = '';
         promptTagsInput.value = '';
         promptCategoriesInput.value = [...selectedCategories].join(', ');
-        deletePromptBtn.hidden = true;
       }
       modalBackdrop.classList.add('active');
       modalBackdrop.setAttribute('aria-hidden', 'false');
@@ -796,7 +781,6 @@
       modalBackdrop.classList.remove('active');
       modalBackdrop.setAttribute('aria-hidden', 'true');
       editingPromptId = null;
-      deletePromptBtn.hidden = true;
     }
 
     function savePrompt() {
@@ -840,19 +824,6 @@
         }
       });
 
-      persistData(data);
-      closeModal();
-      renderAll();
-    }
-
-    function deletePrompt() {
-      if (!editingPromptId) return;
-      const promptItem = data.prompts.find(p => p.id === editingPromptId);
-      const title = promptItem?.title || 'this prompt';
-      if (!confirm(`Delete ${title}? This action cannot be undone.`)) {
-        return;
-      }
-      data.prompts = data.prompts.filter(p => p.id !== editingPromptId);
       persistData(data);
       closeModal();
       renderAll();
@@ -990,8 +961,6 @@
       }
     });
 
-    deletePromptBtn.addEventListener('click', deletePrompt);
-
     addCategoryBtn.addEventListener('click', addCategory);
     addViewBtn.addEventListener('click', addView);
     exportBtn.addEventListener('click', exportData);
@@ -1047,9 +1016,7 @@
     // Accessibility: trap focus within modal when open
     modalBackdrop.addEventListener('keydown', (event) => {
       if (event.key !== 'Tab') return;
-      const focusable = modalBackdrop.querySelectorAll(
-        'input:not([disabled]):not([hidden]), textarea:not([disabled]):not([hidden]), button:not([disabled]):not([hidden])'
-      );
+      const focusable = modalBackdrop.querySelectorAll('input, textarea, button');
       if (focusable.length === 0) return;
       const first = focusable[0];
       const last = focusable[focusable.length - 1];
