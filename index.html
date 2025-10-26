@@ -353,6 +353,17 @@
       color: inherit;
     }
 
+    .modal-actions .delete {
+      margin-right: auto;
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    [data-theme="dark"] .modal-actions .delete {
+      background: rgba(248, 113, 113, 0.2);
+      color: #fca5a5;
+    }
+
     .modal-actions .save {
       background: var(--primary);
       color: #fff;
@@ -535,6 +546,7 @@
       <label for="promptCategories">Categories (comma separated)</label>
       <input id="promptCategories" type="text" placeholder="e.g. Work, Personal">
       <div class="modal-actions">
+        <button type="button" class="delete" id="deletePromptBtn" hidden>Delete</button>
         <button type="button" class="cancel" id="cancelPromptBtn">Cancel</button>
         <button type="button" class="save" id="savePromptBtn">Save</button>
       </div>
@@ -577,6 +589,7 @@
     const promptCategoriesInput = document.getElementById('promptCategories');
     const savePromptBtn = document.getElementById('savePromptBtn');
     const cancelPromptBtn = document.getElementById('cancelPromptBtn');
+    const deletePromptBtn = document.getElementById('deletePromptBtn');
 
     let data = loadData();
     let selectedCategories = new Set();
@@ -708,8 +721,9 @@
 
     function toggleCategory(category) {
       if (selectedCategories.has(category)) {
-        selectedCategories.delete(category);
+        selectedCategories.clear();
       } else {
+        selectedCategories.clear();
         selectedCategories.add(category);
       }
       activeViewId = null;
@@ -719,7 +733,11 @@
     }
 
     function applySavedView(view) {
-      selectedCategories = new Set(view.categories || []);
+      selectedCategories.clear();
+      const primaryCategory = (view.categories || [])[0];
+      if (primaryCategory) {
+        selectedCategories.add(primaryCategory);
+      }
       activeSearch = view.search || '';
       searchInput.value = activeSearch;
       activeViewId = view.id;
@@ -765,12 +783,14 @@
         promptBodyInput.value = promptItem?.body || '';
         promptTagsInput.value = (promptItem?.tags || []).join(', ');
         promptCategoriesInput.value = (promptItem?.categories || []).join(', ');
+        deletePromptBtn.hidden = false;
       } else {
         modalTitle.textContent = 'New Prompt';
         promptTitleInput.value = '';
         promptBodyInput.value = '';
         promptTagsInput.value = '';
         promptCategoriesInput.value = [...selectedCategories].join(', ');
+        deletePromptBtn.hidden = true;
       }
       modalBackdrop.classList.add('active');
       modalBackdrop.setAttribute('aria-hidden', 'false');
@@ -781,6 +801,7 @@
       modalBackdrop.classList.remove('active');
       modalBackdrop.setAttribute('aria-hidden', 'true');
       editingPromptId = null;
+      deletePromptBtn.hidden = true;
     }
 
     function savePrompt() {
@@ -824,6 +845,18 @@
         }
       });
 
+      persistData(data);
+      closeModal();
+      renderAll();
+    }
+
+    function deletePrompt() {
+      if (!editingPromptId) return;
+      const index = data.prompts.findIndex(p => p.id === editingPromptId);
+      if (index === -1) return;
+      const confirmDelete = confirm('Delete this prompt?');
+      if (!confirmDelete) return;
+      data.prompts.splice(index, 1);
       persistData(data);
       closeModal();
       renderAll();
@@ -952,6 +985,7 @@
     searchInput.addEventListener('input', handleSearch);
     newPromptBtn.addEventListener('click', () => openModal());
     savePromptBtn.addEventListener('click', savePrompt);
+    deletePromptBtn.addEventListener('click', deletePrompt);
     cancelPromptBtn.addEventListener('click', () => {
       closeModal();
     });
