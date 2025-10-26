@@ -1,1 +1,1048 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt Organizer</title>
+  <style>
+    :root {
+      --primary: #4F46E5;
+      --background: #f9fafb;
+      --background-sidebar: #eef;
+      --text: #111;
+      --surface: #fff;
+      --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      --border-radius: 8px;
+      --header-height: 64px;
+      --sidebar-width: 240px;
+    }
 
+    [data-theme="dark"] {
+      --background: #111827;
+      --background-sidebar: #1f2937;
+      --surface: #1f2937;
+      --text: #f9fafb;
+      --shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: "Inter", system-ui, Arial, sans-serif;
+      background: var(--background);
+      color: var(--text);
+    }
+
+    body {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr;
+      grid-template-rows: var(--header-height) 1fr auto;
+      grid-template-areas:
+        "header header"
+        "sidebar main"
+        "capture capture";
+      min-height: 100vh;
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+
+    header {
+      grid-area: header;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      min-height: var(--header-height);
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    #sidebarToggle {
+      display: none;
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .search-container {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    #searchInput {
+      width: 40%;
+      min-width: 220px;
+      max-width: 480px;
+      padding: 10px 14px;
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(0,0,0,0.1);
+      background: var(--background);
+      color: inherit;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .icon-button {
+      background: none;
+      border: none;
+      padding: 8px;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .icon-button:focus-visible,
+    button:focus-visible,
+    a:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid var(--primary);
+      outline-offset: 2px;
+    }
+
+    aside {
+      grid-area: sidebar;
+      background: var(--background-sidebar);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+      overflow-y: auto;
+    }
+
+    aside h2 {
+      font-size: 1rem;
+      margin: 0 0 12px;
+    }
+
+    .list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .list button {
+      background: none;
+      border: none;
+      text-align: left;
+      padding: 8px 10px;
+      border-radius: var(--border-radius);
+      cursor: pointer;
+      color: inherit;
+    }
+
+    .list button:hover,
+    .list button.active {
+      background: rgba(79, 70, 229, 0.12);
+      color: var(--primary);
+    }
+
+    .list + button.add-action {
+      margin-top: 8px;
+    }
+
+    .add-action {
+      align-self: flex-start;
+      background: none;
+      border: none;
+      color: var(--primary);
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+
+    .sidebar-bottom {
+      margin-top: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-bottom button {
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(0,0,0,0.1);
+      background: var(--surface);
+      cursor: pointer;
+    }
+
+    main {
+      grid-area: main;
+      padding: 24px;
+      padding-bottom: 120px;
+      overflow-y: auto;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      background: var(--surface);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      transition: transform 0.15s ease;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .card {
+        transition: none;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      body,
+      aside {
+        transition: none !important;
+      }
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .card h3 {
+      margin: 0;
+      font-size: 1.05rem;
+    }
+
+    .card p {
+      margin: 0;
+      color: rgba(0,0,0,0.7);
+    }
+
+    [data-theme="dark"] .card p {
+      color: rgba(255,255,255,0.75);
+    }
+
+    .card .tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: auto;
+      font-size: 0.85rem;
+    }
+
+    .tag {
+      background: rgba(79, 70, 229, 0.12);
+      color: var(--primary);
+      padding: 2px 6px;
+      border-radius: var(--border-radius);
+    }
+
+    footer {
+      grid-area: capture;
+      position: sticky;
+      bottom: 0;
+      background: #eee;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      box-shadow: 0 -1px 3px rgba(0,0,0,0.1);
+      z-index: 5;
+    }
+
+    #newPromptBtn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 999px;
+      padding: 12px 28px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+
+    #newPromptBtn:hover {
+      opacity: 0.9;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .modal-backdrop.active {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      padding: 24px;
+      border-radius: var(--border-radius);
+      width: min(90vw, 420px);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .modal h2 {
+      margin: 0;
+    }
+
+    .modal label {
+      font-weight: 600;
+      font-size: 0.95rem;
+    }
+
+    .modal input,
+    .modal textarea {
+      width: 100%;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: 1px solid rgba(0,0,0,0.2);
+      background: var(--background);
+      color: inherit;
+    }
+
+    .modal textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .modal-actions button {
+      padding: 10px 16px;
+      border-radius: var(--border-radius);
+      border: none;
+      cursor: pointer;
+    }
+
+    .modal-actions .cancel {
+      background: rgba(0,0,0,0.1);
+      color: inherit;
+    }
+
+    .modal-actions .save {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 80px 20px;
+      color: rgba(0,0,0,0.6);
+    }
+
+    [data-theme="dark"] .empty-state {
+      color: rgba(255,255,255,0.6);
+    }
+
+    .pomodoro-overlay {
+      position: fixed;
+      top: 80px;
+      right: 24px;
+      background: var(--surface);
+      border-radius: var(--border-radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      display: none;
+      width: 200px;
+      z-index: 50;
+    }
+
+    .pomodoro-overlay.active {
+      display: block;
+    }
+
+    .pomodoro-overlay h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+    }
+
+    .pomodoro-timer {
+      font-size: 2rem;
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .pomodoro-overlay button {
+      width: 100%;
+      padding: 10px;
+      border-radius: var(--border-radius);
+      border: none;
+      background: var(--primary);
+      color: #fff;
+      cursor: pointer;
+    }
+
+    @media (max-width: 768px) {
+      body {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+          "header"
+          "main"
+          "capture";
+      }
+
+      aside {
+        position: fixed;
+        left: 0;
+        top: var(--header-height);
+        bottom: 60px;
+        width: min(320px, 80vw);
+        transform: translateX(-100%);
+        transition: transform 0.2s ease;
+        z-index: 20;
+      }
+
+      aside.open {
+        transform: translateX(0);
+      }
+
+      #sidebarToggle {
+        display: inline-flex;
+      }
+
+      .search-container {
+        justify-content: flex-start;
+      }
+
+      #searchInput {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <script id="sampleData" type="application/json">
+    {
+      "categories": ["Work", "Personal", "Learning"],
+      "savedViews": [
+        {"id": "view-1", "name": "Work Focus", "categories": ["Work"], "search": ""},
+        {"id": "view-2", "name": "Learning Mode", "categories": ["Learning"], "search": "research"}
+      ],
+      "prompts": [
+        {
+          "id": "prompt-1",
+          "title": "Daily stand-up summary",
+          "body": "Summarize the team's progress, blockers, and next steps concisely.",
+          "tags": ["status", "work"],
+          "categories": ["Work"],
+          "createdAt": 1682798400000
+        },
+        {
+          "id": "prompt-2",
+          "title": "Learn a new concept",
+          "body": "Explain the topic in simple terms, give real-world analogies, and suggest follow-up resources.",
+          "tags": ["learning", "explain"],
+          "categories": ["Learning"],
+          "createdAt": 1682884800000
+        },
+        {
+          "id": "prompt-3",
+          "title": "Weekend planning",
+          "body": "Create a balanced weekend plan mixing rest, hobbies, and social time.",
+          "tags": ["personal", "planning"],
+          "categories": ["Personal"],
+          "createdAt": 1682971200000
+        }
+      ]
+    }
+  </script>
+
+  <header>
+    <div class="brand">
+      <button id="sidebarToggle" aria-label="Toggle sidebar">☰</button>
+      <span>Prompt Organizer</span>
+    </div>
+    <div class="search-container">
+      <input type="search" id="searchInput" placeholder="Search prompts" aria-label="Search prompts">
+    </div>
+    <div class="header-actions">
+      <button class="icon-button" id="themeToggle" aria-label="Toggle theme">🌓</button>
+      <button class="icon-button" id="pomodoroToggle" aria-haspopup="true" aria-expanded="false" aria-controls="pomodoroPanel">⏱️</button>
+    </div>
+  </header>
+
+  <aside aria-label="Sidebar navigation">
+    <section>
+      <h2>Categories</h2>
+      <ul class="list" id="categoryList" role="list"></ul>
+      <button class="add-action" id="addCategoryBtn">+ Category</button>
+    </section>
+    <section>
+      <h2>Saved Views</h2>
+      <ul class="list" id="viewsList" role="list"></ul>
+      <button class="add-action" id="addViewBtn">+ View</button>
+    </section>
+    <hr aria-hidden="true">
+    <div class="sidebar-bottom">
+      <button id="exportBtn">Export</button>
+      <button id="importBtn">Import</button>
+      <input type="file" id="importFile" accept="application/json" hidden>
+    </div>
+  </aside>
+
+  <main>
+    <div class="grid" id="promptGrid" aria-live="polite"></div>
+    <div class="empty-state" id="emptyState" hidden>No prompts match your filters. Try adjusting your search or categories.</div>
+  </main>
+
+  <footer>
+    <button id="newPromptBtn">+ New Prompt</button>
+  </footer>
+
+  <div class="modal-backdrop" id="promptModalBackdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="modalTitle">
+    <div class="modal" role="document">
+      <h2 id="modalTitle">New Prompt</h2>
+      <label for="promptTitle">Title</label>
+      <input id="promptTitle" type="text" required>
+      <label for="promptBody">Body</label>
+      <textarea id="promptBody" required></textarea>
+      <label for="promptTags">Tags (comma separated)</label>
+      <input id="promptTags" type="text">
+      <label for="promptCategories">Categories (comma separated)</label>
+      <input id="promptCategories" type="text" placeholder="e.g. Work, Personal">
+      <div class="modal-actions">
+        <button type="button" class="cancel" id="cancelPromptBtn">Cancel</button>
+        <button type="button" class="save" id="savePromptBtn">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="pomodoro-overlay" id="pomodoroPanel" role="region" aria-live="polite">
+    <h3>Pomodoro</h3>
+    <div class="pomodoro-timer" id="pomodoroTimer">25:00</div>
+    <button id="pomodoroStartBtn">Start</button>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'promptData';
+    const bodyEl = document.body;
+    const searchInput = document.getElementById('searchInput');
+    const promptGrid = document.getElementById('promptGrid');
+    const emptyState = document.getElementById('emptyState');
+    const categoryList = document.getElementById('categoryList');
+    const viewsList = document.getElementById('viewsList');
+    const newPromptBtn = document.getElementById('newPromptBtn');
+    const addCategoryBtn = document.getElementById('addCategoryBtn');
+    const addViewBtn = document.getElementById('addViewBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const importBtn = document.getElementById('importBtn');
+    const importFile = document.getElementById('importFile');
+    const themeToggle = document.getElementById('themeToggle');
+    const pomodoroToggle = document.getElementById('pomodoroToggle');
+    const pomodoroPanel = document.getElementById('pomodoroPanel');
+    const pomodoroTimer = document.getElementById('pomodoroTimer');
+    const pomodoroStartBtn = document.getElementById('pomodoroStartBtn');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebar = document.querySelector('aside');
+
+    const modalBackdrop = document.getElementById('promptModalBackdrop');
+    const modalTitle = document.getElementById('modalTitle');
+    const promptTitleInput = document.getElementById('promptTitle');
+    const promptBodyInput = document.getElementById('promptBody');
+    const promptTagsInput = document.getElementById('promptTags');
+    const promptCategoriesInput = document.getElementById('promptCategories');
+    const savePromptBtn = document.getElementById('savePromptBtn');
+    const cancelPromptBtn = document.getElementById('cancelPromptBtn');
+
+    let data = loadData();
+    let selectedCategories = new Set();
+    let activeSearch = '';
+    let activeViewId = null;
+    let editingPromptId = null;
+    let pomodoroInterval = null;
+    let pomodoroRemaining = 25 * 60;
+
+    applyTheme(loadThemePreference());
+    renderAll();
+
+    function loadData() {
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          return JSON.parse(stored);
+        }
+      } catch (error) {
+        console.error('Failed to parse stored data', error);
+      }
+      const defaults = document.getElementById('sampleData').textContent;
+      try {
+        const parsed = JSON.parse(defaults);
+        persistData(parsed);
+        return parsed;
+      } catch (error) {
+        console.error('Failed to parse default data', error);
+        return { categories: [], savedViews: [], prompts: [] };
+      }
+    }
+
+    function persistData(updated) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+    }
+
+    function renderAll() {
+      renderCategories();
+      renderViews();
+      renderPrompts();
+    }
+
+    function renderCategories() {
+      categoryList.innerHTML = '';
+      data.categories.forEach(category => {
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.textContent = category;
+        button.classList.toggle('active', selectedCategories.has(category));
+        button.addEventListener('click', () => toggleCategory(category));
+        li.appendChild(button);
+        categoryList.appendChild(li);
+      });
+    }
+
+    function renderViews() {
+      viewsList.innerHTML = '';
+      data.savedViews.forEach(view => {
+        const li = document.createElement('li');
+        const button = document.createElement('button');
+        button.textContent = view.name;
+        button.classList.toggle('active', view.id === activeViewId);
+        button.addEventListener('click', () => applySavedView(view));
+        li.appendChild(button);
+        viewsList.appendChild(li);
+      });
+    }
+
+    function renderPrompts() {
+      const filtered = data.prompts.filter(prompt => {
+        if (selectedCategories.size > 0) {
+          const hasAll = [...selectedCategories].every(cat => prompt.categories?.includes(cat));
+          if (!hasAll) return false;
+        }
+        if (!activeSearch) return true;
+        const term = activeSearch.toLowerCase();
+        const combined = [prompt.title, prompt.body, ...(prompt.tags || []), ...(prompt.categories || [])]
+          .join(' ') 
+          .toLowerCase();
+        return combined.includes(term);
+      });
+
+      promptGrid.innerHTML = '';
+      if (filtered.length === 0) {
+        emptyState.hidden = false;
+        return;
+      }
+      emptyState.hidden = true;
+
+      filtered
+        .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+        .forEach(prompt => {
+          const card = document.createElement('article');
+          card.className = 'card';
+          card.tabIndex = 0;
+          card.setAttribute('role', 'button');
+          card.setAttribute('aria-label', `Edit prompt ${prompt.title}`);
+          const title = document.createElement('h3');
+          title.textContent = prompt.title || 'Untitled prompt';
+          const body = document.createElement('p');
+          const preview = (prompt.body || '').trim();
+          body.textContent = preview.length > 120 ? preview.slice(0, 117) + '…' : preview;
+          const tagsContainer = document.createElement('div');
+          tagsContainer.className = 'tags';
+          [...(prompt.tags || [])].forEach(tag => {
+            const span = document.createElement('span');
+            span.className = 'tag';
+            span.textContent = tag;
+            tagsContainer.appendChild(span);
+          });
+
+          card.appendChild(title);
+          card.appendChild(body);
+          if (tagsContainer.children.length) {
+            card.appendChild(tagsContainer);
+          }
+
+          card.addEventListener('click', () => openModal(prompt.id));
+          card.addEventListener('keypress', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openModal(prompt.id);
+            }
+          });
+
+          promptGrid.appendChild(card);
+        });
+    }
+
+    function toggleCategory(category) {
+      if (selectedCategories.has(category)) {
+        selectedCategories.delete(category);
+      } else {
+        selectedCategories.add(category);
+      }
+      activeViewId = null;
+      renderCategories();
+      renderViews();
+      renderPrompts();
+    }
+
+    function applySavedView(view) {
+      selectedCategories = new Set(view.categories || []);
+      activeSearch = view.search || '';
+      searchInput.value = activeSearch;
+      activeViewId = view.id;
+      renderAll();
+    }
+
+    function addCategory() {
+      const name = prompt('New category name?');
+      if (!name) return;
+      if (data.categories.includes(name)) return;
+      data.categories.push(name);
+      persistData(data);
+      renderCategories();
+    }
+
+    function generateId(prefix) {
+      const unique = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : Math.random().toString(16).slice(2);
+      return `${prefix}-${unique}`;
+    }
+
+    function addView() {
+      const name = prompt('Name this view');
+      if (!name) return;
+      const view = {
+        id: generateId('view'),
+        name,
+        categories: [...selectedCategories],
+        search: activeSearch
+      };
+      data.savedViews.push(view);
+      persistData(data);
+      renderViews();
+    }
+
+    function openModal(promptId = null) {
+      editingPromptId = promptId;
+      if (promptId) {
+        const promptItem = data.prompts.find(p => p.id === promptId);
+        modalTitle.textContent = 'Edit Prompt';
+        promptTitleInput.value = promptItem?.title || '';
+        promptBodyInput.value = promptItem?.body || '';
+        promptTagsInput.value = (promptItem?.tags || []).join(', ');
+        promptCategoriesInput.value = (promptItem?.categories || []).join(', ');
+      } else {
+        modalTitle.textContent = 'New Prompt';
+        promptTitleInput.value = '';
+        promptBodyInput.value = '';
+        promptTagsInput.value = '';
+        promptCategoriesInput.value = [...selectedCategories].join(', ');
+      }
+      modalBackdrop.classList.add('active');
+      modalBackdrop.setAttribute('aria-hidden', 'false');
+      promptTitleInput.focus();
+    }
+
+    function closeModal() {
+      modalBackdrop.classList.remove('active');
+      modalBackdrop.setAttribute('aria-hidden', 'true');
+      editingPromptId = null;
+    }
+
+    function savePrompt() {
+      const title = promptTitleInput.value.trim();
+      const body = promptBodyInput.value.trim();
+      const tags = promptTagsInput.value.split(',').map(tag => tag.trim()).filter(Boolean);
+      const categories = promptCategoriesInput.value.split(',').map(cat => cat.trim()).filter(Boolean);
+
+      if (!title || !body) {
+        alert('Title and body are required.');
+        return;
+      }
+
+      if (editingPromptId) {
+        const index = data.prompts.findIndex(p => p.id === editingPromptId);
+        if (index !== -1) {
+          data.prompts[index] = {
+            ...data.prompts[index],
+            title,
+            body,
+            tags,
+            categories,
+            updatedAt: Date.now()
+          };
+        }
+      } else {
+        const newPrompt = {
+          id: generateId('prompt'),
+          title,
+          body,
+          tags,
+          categories,
+          createdAt: Date.now()
+        };
+        data.prompts.push(newPrompt);
+      }
+
+      categories.forEach(category => {
+        if (category && !data.categories.includes(category)) {
+          data.categories.push(category);
+        }
+      });
+
+      persistData(data);
+      closeModal();
+      renderAll();
+    }
+
+    function handleSearch(event) {
+      activeSearch = event.target.value.trim();
+      activeViewId = null;
+      renderPrompts();
+      renderViews();
+    }
+
+    function exportData() {
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'promptData.json';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          if (!parsed || typeof parsed !== 'object') throw new Error('Invalid data');
+          data = {
+            categories: parsed.categories || [],
+            savedViews: parsed.savedViews || [],
+            prompts: parsed.prompts || []
+          };
+          persistData(data);
+          selectedCategories.clear();
+          activeSearch = '';
+          activeViewId = null;
+          renderAll();
+        } catch (error) {
+          alert('Import failed: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function loadThemePreference() {
+      const stored = localStorage.getItem('promptTheme');
+      if (stored) return stored;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function applyTheme(theme) {
+      bodyEl.dataset.theme = theme;
+      localStorage.setItem('promptTheme', theme);
+    }
+
+    function toggleTheme() {
+      const next = bodyEl.dataset.theme === 'dark' ? 'light' : 'dark';
+      applyTheme(next);
+    }
+
+    function togglePomodoro() {
+      const isActive = pomodoroPanel.classList.toggle('active');
+      pomodoroToggle.setAttribute('aria-expanded', String(isActive));
+    }
+
+    function formatTime(seconds) {
+      const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+      const s = Math.floor(seconds % 60).toString().padStart(2, '0');
+      return `${m}:${s}`;
+    }
+
+    function togglePomodoroTimer() {
+      if (pomodoroInterval) {
+        clearInterval(pomodoroInterval);
+        pomodoroInterval = null;
+        pomodoroStartBtn.textContent = 'Start';
+        return;
+      }
+      pomodoroInterval = setInterval(() => {
+        pomodoroRemaining -= 1;
+        if (pomodoroRemaining <= 0) {
+          clearInterval(pomodoroInterval);
+          pomodoroInterval = null;
+          pomodoroRemaining = 25 * 60;
+          alert('Pomodoro complete!');
+          pomodoroStartBtn.textContent = 'Start';
+        }
+        pomodoroTimer.textContent = formatTime(pomodoroRemaining);
+      }, 1000);
+      pomodoroStartBtn.textContent = 'Stop';
+    }
+
+    function resetPomodoro() {
+      if (pomodoroInterval) {
+        clearInterval(pomodoroInterval);
+        pomodoroInterval = null;
+        pomodoroStartBtn.textContent = 'Start';
+      }
+      pomodoroRemaining = 25 * 60;
+      pomodoroTimer.textContent = formatTime(pomodoroRemaining);
+    }
+
+    function toggleSidebar() {
+      sidebar.classList.toggle('open');
+    }
+
+    function handleGlobalKeys(event) {
+      if (event.key === '/' && !event.target.matches('input, textarea')) {
+        event.preventDefault();
+        searchInput.focus();
+      } else if (event.key === 'n' && !event.target.matches('input, textarea')) {
+        event.preventDefault();
+        openModal();
+      } else if (event.key === 's' && modalBackdrop.classList.contains('active')) {
+        event.preventDefault();
+        savePrompt();
+      } else if (event.key === 'Escape' && modalBackdrop.classList.contains('active')) {
+        event.preventDefault();
+        closeModal();
+      }
+    }
+
+    searchInput.addEventListener('input', handleSearch);
+    newPromptBtn.addEventListener('click', () => openModal());
+    savePromptBtn.addEventListener('click', savePrompt);
+    cancelPromptBtn.addEventListener('click', () => {
+      closeModal();
+    });
+    modalBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalBackdrop) {
+        closeModal();
+      }
+    });
+
+    addCategoryBtn.addEventListener('click', addCategory);
+    addViewBtn.addEventListener('click', addView);
+    exportBtn.addEventListener('click', exportData);
+    importBtn.addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', (event) => {
+      const file = event.target.files[0];
+      if (file) {
+        importData(file);
+      }
+      importFile.value = '';
+    });
+
+    themeToggle.addEventListener('click', toggleTheme);
+    pomodoroToggle.addEventListener('click', () => {
+      togglePomodoro();
+      resetPomodoro();
+    });
+    pomodoroStartBtn.addEventListener('click', togglePomodoroTimer);
+    sidebarToggle.addEventListener('click', toggleSidebar);
+
+    window.addEventListener('keydown', handleGlobalKeys);
+    window.addEventListener('beforeunload', () => {
+      if (pomodoroInterval) {
+        clearInterval(pomodoroInterval);
+      }
+    });
+
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (event) => {
+      if (!localStorage.getItem('promptTheme')) {
+        applyTheme(event.matches ? 'dark' : 'light');
+      }
+    });
+
+    // Ensure pomodoro timer resets when hidden
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) {
+          resetPomodoro();
+        }
+      });
+    });
+    observer.observe(pomodoroPanel);
+
+    // Close sidebar when clicking outside on mobile
+    document.addEventListener('click', (event) => {
+      if (window.innerWidth <= 768 && sidebar.classList.contains('open')) {
+        if (!sidebar.contains(event.target) && event.target !== sidebarToggle) {
+          sidebar.classList.remove('open');
+        }
+      }
+    });
+
+    // Accessibility: trap focus within modal when open
+    modalBackdrop.addEventListener('keydown', (event) => {
+      if (event.key !== 'Tab') return;
+      const focusable = modalBackdrop.querySelectorAll('input, textarea, button');
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey) {
+        if (document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+
+    // Ensure data re-renders on storage changes (multi-tab safety)
+    window.addEventListener('storage', (event) => {
+      if (event.key === STORAGE_KEY && event.newValue) {
+        data = JSON.parse(event.newValue);
+        renderAll();
+      }
+    });
+
+    // Keep Pomodoro display in sync
+    pomodoroTimer.textContent = formatTime(pomodoroRemaining);
+  </script>
+</body>
+</html>
